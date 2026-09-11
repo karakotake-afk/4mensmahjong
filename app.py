@@ -36,7 +36,6 @@ with col_sp:
     )
 
 with col_han:
-    # 役満選択時は翻数選択を無効化（感覚的にわかりやすく）
     if special == "役満":
         han = st.selectbox("翻数", [1], disabled=True)
     else:
@@ -76,7 +75,6 @@ st.subheader("【面子の内訳（4組分）】")
 
 mentsu_data = []
 
-# 平和または七対子の場合は面子入力をスキップ/固定
 is_peiko = menzen_state == "平和"
 is_chitoi = special == "七対子"
 
@@ -97,7 +95,6 @@ else:
                 label_visibility="collapsed",
             )
         with c2:
-            # 順子以外の場合のみ牌の種類（中張/么九）を選択可能にする
             if m_type != "順子":
                 m_tile = st.radio(
                     f"面子{i+1}の牌",
@@ -138,7 +135,7 @@ honba_tsumo_add = honba * 100
 if special == "役満":
     base_score = 8000 * yakuman_mult
     fu = 0
-    res_title = f"【役満（{yakuman_mult}倍役満）】"
+    res_title = f"役満（{yakuman_mult}倍役満）"
 
 # --- 通常の符計算 ---
 else:
@@ -151,7 +148,6 @@ else:
     else:
         fu = 20  # 基本符（副底）
 
-        # ツモ/ロン加符
         if menzen_state == "門前" and is_tsumo:
             fu += 2
         elif menzen_state == "門前" and not is_tsumo:
@@ -159,17 +155,14 @@ else:
         elif menzen_state == "鳴き有り" and is_tsumo:
             fu += 2
 
-        # 雀頭の符
         if head == "役牌（自風・場風・三元牌）":
             fu += 2
         elif head == "ダブル風牌":
             fu += 4
 
-        # 待ちの符
         if wait == "カンチャン / ペンチャン / 単騎":
             fu += 2
 
-        # 面子の符
         score_table = {
             ("明刻", "中張牌"): 2,
             ("明刻", "么九牌"): 4,
@@ -185,7 +178,6 @@ else:
             if m["type"] != "順子":
                 fu += score_table.get((m["type"], m["tile"]), 0)
 
-        # 10符切り上げ（喰い平和特例含む）
         if fu == 20 and menzen_state == "鳴き有り":
             fu = 30
         else:
@@ -207,42 +199,52 @@ else:
         if base_score > 2000:
             base_score = 2000
 
-    res_title = f"【{fu}符 {han}翻】"
+    res_title = f"{fu}符 {han}翻"
 
 # ---------------------------------------------------------
-# 計算結果の表示
+# 計算結果の表示（大きく目立つメリハリ表示）
 # ---------------------------------------------------------
 st.subheader("【計算結果】")
 
-# コンテナ枠で強調表示
 with st.container(border=True):
-    st.markdown(f"### {res_title}（{player}のあがり）")
-
+    # 符・翻数などのメタ情報を控えめに小さく表示
+    st.caption(f"条件: **{res_title}** （{player}のあがり）")
     if honba > 0:
-        st.caption(f"※ {honba}本場分の加算点が含まれています")
+        st.caption(f"※ {honba}本場を含む（ロン:+{honba*300}点 / ツモ:各+{honba*100}点）")
 
+    st.write("---")
+
+    # メインの支払点数を特大サイズ（st.metric）で可視化
     if is_parent:
         # --- 親のあがり ---
         if is_tsumo:
             pay = math.ceil((base_score * 2) / 100) * 100 + honba_tsumo_add
-            st.success(
-                f"**子一人につき: {pay:,} 点** （合計: {pay*3:,} 点）"
+            st.metric(
+                label="子一人あたりの支払い",
+                value=f"{pay:,} 点",
+                delta=f"合計 {pay*3:,} 点",
+                delta_color="off",
             )
         else:
             pay = math.ceil((base_score * 6) / 100) * 100 + honba_ron_add
-            st.success(f"**放銃者から: {pay:,} 点**")
+            st.metric(label="放銃者の支払い（ロン）", value=f"{pay:,} 点")
     else:
         # --- 子のあがり ---
         if is_tsumo:
             p_pay = math.ceil((base_score * 2) / 100) * 100 + honba_tsumo_add
             c_pay = math.ceil((base_score * 1) / 100) * 100 + honba_tsumo_add
             total = p_pay + (c_pay * 2)
-            st.success(
-                f"**親の支払い: {p_pay:,} 点 / 子の支払い: {c_pay:,} 点（一人あたり）**\n\n（合計: {total:,} 点）"
-            )
+
+            col_p, col_c = st.columns(2)
+            with col_p:
+                st.metric(label="親の支払い", value=f"{p_pay:,} 点")
+            with col_c:
+                st.metric(label="子の支払い（一人あたり）", value=f"{c_pay:,} 点")
+
+            st.caption(f"💰 合計獲得点数: **{total:,} 点**")
         else:
             pay = math.ceil((base_score * 4) / 100) * 100 + honba_ron_add
-            st.success(f"**放銃者から: {pay:,} 点**")
+            st.metric(label="放銃者の支払い（ロン）", value=f"{pay:,} 点")
 
 # 注記表示
 st.caption("※ 平和ツモは20符固定で計算します。")
